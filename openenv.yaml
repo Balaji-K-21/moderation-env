@@ -1,0 +1,40 @@
+name: "content_moderation_appeal_investigator"
+version: "1.0.0"
+description: "An environment for training agents to investigate and rule on content moderation appeals using multi-step evidence gathering."
+entry_point: "server.app:app"
+env_class: "ModerationEnv"
+port: 7860
+
+schema:
+  observation:
+    type: "object"
+    properties:
+      post_content: { type: "string" }
+      appeal_text: { type: "string" }
+      available_actions: { type: "array", items: { type: "string" } }
+      investigation_log: { type: "array", items: { type: "string" } }
+      remaining_steps: { type: "integer" }
+  action:
+    type: "object"
+    properties:
+      action_type: { type: "string", enum: ["inspect_post", "fetch_user_history", "fetch_reporter_profile", "fetch_similar_rulings", "request_translation", "decide"] }
+      decision: { type: "string", enum: ["UPHOLD", "OVERTURN", "NONE"] }
+
+tasks:
+  - id: "easy_appeal"
+    name: "Straightforward Appeal"
+    description: "Clear-cut cases with obvious signals — serial false reporter, established account, colloquial language."
+    difficulty: "easy"
+    max_steps: 6
+
+  - id: "medium_appeal"
+    name: "Contextual Appeal"
+    description: "Ambiguous cases requiring at least 2-3 investigation steps — mixed user history, borderline content."
+    difficulty: "medium"
+    max_steps: 6
+
+  - id: "hard_appeal"
+    name: "Multilingual or Coded Appeal"
+    description: "Non-English content, coded language, or high-stakes decisions requiring full investigation budget."
+    difficulty: "hard"
+    max_steps: 6
