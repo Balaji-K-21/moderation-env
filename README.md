@@ -49,11 +49,13 @@ OVERTURN (restore the content).
 
 | Event | Reward |
 |---|---|
-| Correct decision | +1.0 |
-| Translation bonus (non-English) | +0.2 |
-| Step cost (per action) | -0.1 |
-| False negative (missed violation) | -1.0 |
-| False positive (banned innocent) | -1.5 |
+| Correct decision (easy) | +1.0 |
+| Correct decision (medium) | +1.2 |
+| Correct decision (hard) | +1.5 |
+| Translation bonus | +0.2 to +0.3 |
+| Step cost | -0.05 to -0.15 |
+| False positive | -1.5 to -2.0 |
+| False negative | -1.0 to -1.5 |
 
 ## API Endpoints
 
@@ -65,16 +67,25 @@ OVERTURN (restore the content).
 | GET | /health | Health check |
 
 ## Setup
+
+### Install dependencies
 ```bash
-git clone https://huggingface.co/spaces/kolaaahalan/moderation-env
-cd moderation-env
 pip install -r requirements.txt
-uvicorn server.app:app --host 0.0.0.0 --port 8000
 ```
 
-## Run Baseline Agent
+### Set environment variables
 ```bash
-export GROQ_API_KEY=your-key-here
+export HF_TOKEN=your_groq_api_key
+export ENV_BASE_URL=http://localhost:8000
+```
+
+### Run server
+```bash
+uvicorn server.app:app --host 0.0.0.0 --port 8000 --reload
+```
+
+### Run inference
+```bash
 python inference.py
 ```
 
@@ -84,8 +95,10 @@ reset(task_id="easy_appeal")
 → Post: "BUY CHEAP PHARMA NOW! LINK IN BIO!!!"
 → Appeal: "This is not spam, I am just sharing a deal."
 
-step(inspect_post)     → reward: -0.1
-step(decide, UPHOLD)   → reward: +0.9
+step(inspect_post)            → reward: -0.05
+step(fetch_user_history)      → reward: -0.05
+step(fetch_reporter_profile)  → reward: -0.05
+step(decide, UPHOLD)          → reward: +0.95
 Total reward: 0.80
 ```
 
@@ -93,9 +106,9 @@ Total reward: 0.80
 
 | Variable | Description |
 |---|---|
-| API_BASE_URL | The API endpoint for the environment |
+| ENV_BASE_URL | The API endpoint for the environment |
 | MODEL_NAME | LLM model identifier |
-| HF_TOKEN | Hugging Face API token |
+| HF_TOKEN | Groq API key for LLM inference |
 
 ## Live Demo
 
