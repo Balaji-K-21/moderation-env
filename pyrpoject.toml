@@ -1,0 +1,13 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "content-moderation-appeal-investigator"
+version = "1.0.0"
+description = "An RL environment for content moderation appeal investigation"
+requires-python = ">=3.11"
+
+[tool.openenv]
+env_class = "server.env:ModerationEnv"
+entry_point = "server.app:app"
