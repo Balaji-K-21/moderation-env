@@ -2,7 +2,7 @@ name: "content_moderation_appeal_investigator"
 version: "1.0.0"
 description: "An environment for training agents to investigate and rule on content moderation appeals using multi-step evidence gathering."
 entry_point: "server.app:app"
-env_class: "ModerationEnv"
+env_class: "server.env:ModerationEnv"
 port: 7860
 
 schema:
@@ -18,7 +18,11 @@ schema:
     type: "object"
     properties:
       action_type: { type: "string", enum: ["inspect_post", "fetch_user_history", "fetch_reporter_profile", "fetch_similar_rulings", "request_translation", "decide"] }
-      decision: { type: "string", enum: ["UPHOLD", "OVERTURN", "NONE"] }
+      decision:
+        anyOf:
+          - type: "string"
+            enum: ["UPHOLD", "OVERTURN"]
+          - type: "null"
 
 tasks:
   - id: "easy_appeal"
@@ -37,4 +41,4 @@ tasks:
     name: "Multilingual or Coded Appeal"
     description: "Non-English content, coded language, or high-stakes decisions requiring full investigation budget."
     difficulty: "hard"
-    max_steps: 6
+    max_steps: 8
