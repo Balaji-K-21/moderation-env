@@ -7,6 +7,17 @@ name = "content-moderation-appeal-investigator"
 version = "1.0.0"
 description = "An RL environment for content moderation appeal investigation"
 requires-python = ">=3.11"
+dependencies = [
+    "openenv-core>=0.2.0",
+    "fastapi",
+    "uvicorn",
+    "pydantic",
+    "openai",
+    "requests"
+]
+
+[project.scripts]
+server = "server.app:main"
 
 [tool.openenv]
 env_class = "server.env:ModerationEnv"
