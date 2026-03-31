@@ -20,7 +20,10 @@ class ModerationAction(Action):
         "request_translation",
         "decide"
     ]
-    decision: Optional[Literal["UPHOLD", "OVERTURN"]] = Field(default=None)
+    decision: Optional[Literal["UPHOLD", "OVERTURN"]] = Field(
+        default=None,
+        description="Final moderation decision, only used when action_type='decide'"
+    )
 
 class ModerationState(State):
     post_id: str = Field(description="ID of the current case")

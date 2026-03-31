@@ -1,4 +1,6 @@
 from typing import Optional
+import random
+
 from openenv.core.env_server import Environment
 from models import ModerationObservation, ModerationAction, ModerationState
 
@@ -8,266 +10,243 @@ class ModerationEnv(Environment[ModerationAction, ModerationObservation, Moderat
         super().__init__()
 
         self.cases = {
-
             # ── EASY CASES ─────────────────────────────────────────────────
-            # Clear violations or clear false positives — obvious signals
-
             "easy_001": {
                 "post": "BUY CHEAP PHARMA NOW! LINK IN BIO!!!",
                 "appeal": "This is not spam, I am just sharing a deal.",
                 "violation": True,
                 "lang": "English",
-                "reporter_trust": 0.9,
-                "difficulty": "easy"
+                "difficulty": "easy",
+                "reporter_trust": 0.82,
+                "user_history_summary": "User history: Account age 14 days, 1 prior spam warning, phone unverified.",
+                "reporter_profile_summary": "Reporter trust score: 0.82. Reporter usually files valid reports, but not perfectly.",
+                "similar_rulings_summary": "Similar rulings: 2 of 3 precedent cases were UPHOLD. Posts promoting unverified pharma deals are often removed.",
             },
             "easy_002": {
                 "post": "MAKE $5000 A DAY FROM HOME! NO EXPERIENCE NEEDED! CLICK HERE!!!",
                 "appeal": "I am just sharing a business opportunity.",
                 "violation": True,
                 "lang": "English",
-                "reporter_trust": 0.85,
-                "difficulty": "easy"
+                "difficulty": "easy",
+                "reporter_trust": 0.80,
+                "user_history_summary": "User history: Account age 45 days, no verified identity, prior warning for deceptive promotion.",
+                "reporter_profile_summary": "Reporter trust score: 0.80. Strong record of accurate spam reports.",
+                "similar_rulings_summary": "Similar rulings: 3 of 3 comparable deceptive earnings claims were UPHOLD.",
             },
             "easy_003": {
                 "post": "FREE iPhone 15 giveaway! Just send $50 processing fee to claim yours!",
                 "appeal": "This is a legitimate giveaway promotion.",
                 "violation": True,
                 "lang": "English",
-                "reporter_trust": 0.9,
-                "difficulty": "easy"
+                "difficulty": "easy",
+                "reporter_trust": 0.77,
+                "user_history_summary": "User history: Account age 120 days, one prior complaint related to misleading promotions.",
+                "reporter_profile_summary": "Reporter trust score: 0.77. Mostly reliable, with occasional over-reporting.",
+                "similar_rulings_summary": "Similar rulings: 3 of 3 cases involving fees for prize claims were UPHOLD.",
             },
             "easy_004": {
                 "post": "Just finished my morning run! 5km in 28 minutes, new personal best!",
                 "appeal": "I was just sharing my fitness progress, this is not spam.",
                 "violation": False,
                 "lang": "English",
-                "reporter_trust": 0.1,
-                "difficulty": "easy"
+                "difficulty": "easy",
+                "reporter_trust": 0.22,
+                "user_history_summary": "User history: Account age 980 days, no prior violations, verified profile.",
+                "reporter_profile_summary": "Reporter trust score: 0.22. History includes several false or low-quality reports.",
+                "similar_rulings_summary": "Similar rulings: 3 of 3 benign personal fitness updates were OVERTURN.",
             },
             "easy_005": {
                 "post": "Happy birthday to my amazing mom! Love you to the moon and back 🎂❤️",
                 "appeal": "This is a personal birthday message, not a violation.",
                 "violation": False,
                 "lang": "English",
-                "reporter_trust": 0.05,
-                "difficulty": "easy"
+                "difficulty": "easy",
+                "reporter_trust": 0.12,
+                "user_history_summary": "User history: Account age 1500 days, no prior violations, verified account.",
+                "reporter_profile_summary": "Reporter trust score: 0.12. Repeated history of mistaken reports.",
+                "similar_rulings_summary": "Similar rulings: 3 of 3 personal celebratory messages were OVERTURN.",
             },
             "easy_006": {
                 "post": "URGENT: Your account has been compromised! Click this link NOW to secure it: bit.ly/fake123",
                 "appeal": "I was trying to help people secure their accounts.",
                 "violation": True,
                 "lang": "English",
-                "reporter_trust": 0.95,
-                "difficulty": "easy"
+                "difficulty": "easy",
+                "reporter_trust": 0.90,
+                "user_history_summary": "User history: Account age 7 days, unverified contact details, previous phishing-related removal.",
+                "reporter_profile_summary": "Reporter trust score: 0.90. Strong history of valid safety reports.",
+                "similar_rulings_summary": "Similar rulings: 3 of 3 credential-theft style warnings with suspicious links were UPHOLD.",
             },
             "easy_007": {
                 "post": "Lost my dog near Central Park today. Brown labrador, answers to Max. Please share!",
                 "appeal": "I was just trying to find my lost pet, not violating any rules.",
                 "violation": False,
                 "lang": "English",
-                "reporter_trust": 0.05,
-                "difficulty": "easy"
+                "difficulty": "easy",
+                "reporter_trust": 0.18,
+                "user_history_summary": "User history: Account age 620 days, no prior violations.",
+                "reporter_profile_summary": "Reporter trust score: 0.18. Reporter often flags harmless local posts as spam.",
+                "similar_rulings_summary": "Similar rulings: 2 of 3 community help requests were OVERTURN.",
             },
             "easy_008": {
                 "post": "Get rich quick with crypto! 1000% returns guaranteed! DM me NOW before it's too late!!!",
                 "appeal": "Cryptocurrency investment is legal and I was sharing opportunities.",
                 "violation": True,
                 "lang": "English",
-                "reporter_trust": 0.88,
-                "difficulty": "easy"
+                "difficulty": "easy",
+                "reporter_trust": 0.79,
+                "user_history_summary": "User history: Account age 60 days, one prior removal for misleading financial claims.",
+                "reporter_profile_summary": "Reporter trust score: 0.79. Reporter usually flags investment scams correctly.",
+                "similar_rulings_summary": "Similar rulings: 3 of 3 guaranteed-return promotions were UPHOLD.",
             },
             "easy_009": {
                 "post": "Beautiful sunset at the beach today 🌅 Nature is amazing!",
                 "appeal": "This is just a photo of a sunset, completely harmless.",
                 "violation": False,
                 "lang": "English",
-                "reporter_trust": 0.08,
-                "difficulty": "easy"
+                "difficulty": "easy",
+                "reporter_trust": 0.20,
+                "user_history_summary": "User history: Account age 400 days, no prior violations.",
+                "reporter_profile_summary": "Reporter trust score: 0.20. History includes frequent mistaken reports.",
+                "similar_rulings_summary": "Similar rulings: 3 of 3 scenic photo posts were OVERTURN.",
             },
             "easy_010": {
                 "post": "Buy followers cheap! 10000 followers for $5! Real accounts guaranteed!",
                 "appeal": "This is a marketing service, not against any rules.",
                 "violation": True,
                 "lang": "English",
-                "reporter_trust": 0.92,
-                "difficulty": "easy"
-            },
-            "easy_011": {
-                "post": "Just adopted a rescue kitten! Meet Luna 🐱 She's already ruling the house!",
-                "appeal": "Pet adoption post is not a violation of any kind.",
-                "violation": False,
-                "lang": "English",
-                "reporter_trust": 0.03,
-                "difficulty": "easy"
-            },
-            "easy_012": {
-                "post": "FREE gift cards! Like and share this post to win! 100% real no scam!!!",
-                "appeal": "This is a genuine promotional giveaway for my followers.",
-                "violation": True,
-                "lang": "English",
-                "reporter_trust": 0.87,
-                "difficulty": "easy"
-            },
-            "easy_013": {
-                "post": "Cooked homemade biryani today! Recipe in the comments 🍛",
-                "appeal": "Sharing a recipe is not a policy violation.",
-                "violation": False,
-                "lang": "English",
-                "reporter_trust": 0.04,
-                "difficulty": "easy"
-            },
-            "easy_014": {
-                "post": "VERIFIED HACK: Get unlimited free gems in any game! Download now: fakesite.xyz",
-                "appeal": "I was sharing useful gaming tips with the community.",
-                "violation": True,
-                "lang": "English",
-                "reporter_trust": 0.91,
-                "difficulty": "easy"
-            },
-            "easy_015": {
-                "post": "Proud of my daughter for graduating today! First in our family to get a degree!",
-                "appeal": "This is a personal family celebration post.",
-                "violation": False,
-                "lang": "English",
-                "reporter_trust": 0.02,
-                "difficulty": "easy"
+                "difficulty": "easy",
+                "reporter_trust": 0.84,
+                "user_history_summary": "User history: Account age 30 days, 2 prior platform-manipulation warnings.",
+                "reporter_profile_summary": "Reporter trust score: 0.84. Good history in manipulation-related reports.",
+                "similar_rulings_summary": "Similar rulings: 3 of 3 follower-selling services were UPHOLD.",
             },
 
             # ── MEDIUM CASES ───────────────────────────────────────────────
-            # Ambiguous — requires checking user history and reporter profile
-
             "medium_001": {
                 "post": "I hate how everyone in this group acts like a child.",
                 "appeal": "I was expressing frustration, not harassing anyone.",
                 "violation": False,
                 "lang": "English",
-                "reporter_trust": 0.3,
-                "difficulty": "medium"
+                "difficulty": "medium",
+                "reporter_trust": 0.42,
+                "user_history_summary": "User history: Account age 900 days, one prior warning for heated language, no harassment removals.",
+                "reporter_profile_summary": "Reporter trust score: 0.42. Mixed history — some valid interpersonal safety reports, some false alarms.",
+                "similar_rulings_summary": "Similar rulings: Mixed. Broad insults without a protected target are often allowed but monitored.",
             },
             "medium_002": {
                 "post": "These politicians are destroying our country. They should all be thrown out.",
                 "appeal": "This is political opinion, protected free speech.",
                 "violation": False,
                 "lang": "English",
-                "reporter_trust": 0.35,
-                "difficulty": "medium"
+                "difficulty": "medium",
+                "reporter_trust": 0.48,
+                "user_history_summary": "User history: Account age 1300 days, no prior violent-threat removals.",
+                "reporter_profile_summary": "Reporter trust score: 0.48. Reporter history is mixed.",
+                "similar_rulings_summary": "Similar rulings: Mostly allowed when framed as political criticism rather than explicit violence.",
             },
             "medium_003": {
                 "post": "I want to kill this presentation. Boss is going to love these numbers 📊",
                 "appeal": "This is a common expression, not a real threat.",
                 "violation": False,
                 "lang": "English",
-                "reporter_trust": 0.25,
-                "difficulty": "medium"
+                "difficulty": "medium",
+                "reporter_trust": 0.38,
+                "user_history_summary": "User history: Account age 500 days, no prior threats or abuse history.",
+                "reporter_profile_summary": "Reporter trust score: 0.38. Reporter has filed several literal readings of idioms.",
+                "similar_rulings_summary": "Similar rulings: Idiomatic workplace language without a real target is usually OVERTURN.",
             },
             "medium_004": {
                 "post": "Vaccines are big pharma's way of controlling the population. Do your research!",
                 "appeal": "I have the right to share my opinions about health.",
                 "violation": True,
                 "lang": "English",
-                "reporter_trust": 0.65,
-                "difficulty": "medium"
+                "difficulty": "medium",
+                "reporter_trust": 0.66,
+                "user_history_summary": "User history: Account age 780 days, one prior misinformation warning, otherwise normal activity.",
+                "reporter_profile_summary": "Reporter trust score: 0.66. Usually reliable on health misinformation reports.",
+                "similar_rulings_summary": "Similar rulings: Often UPHOLD when posts discourage trust in public-health measures using unsupported claims.",
             },
             "medium_005": {
                 "post": "This diet helped me lose 30kg in 2 months! No exercise needed, just this one trick!",
                 "appeal": "I was sharing my personal weight loss journey.",
                 "violation": True,
                 "lang": "English",
-                "reporter_trust": 0.6,
-                "difficulty": "medium"
+                "difficulty": "medium",
+                "reporter_trust": 0.61,
+                "user_history_summary": "User history: Account age 300 days, prior promotional-content warning.",
+                "reporter_profile_summary": "Reporter trust score: 0.61. Fairly reliable but not definitive.",
+                "similar_rulings_summary": "Similar rulings: Mixed, but exaggerated health-result claims paired with bait phrasing are frequently UPHOLD.",
             },
             "medium_006": {
                 "post": "The election was stolen. Here is the proof the mainstream media won't show you.",
                 "appeal": "I was sharing information that people deserve to know.",
                 "violation": True,
                 "lang": "English",
-                "reporter_trust": 0.7,
-                "difficulty": "medium"
+                "difficulty": "medium",
+                "reporter_trust": 0.69,
+                "user_history_summary": "User history: Account age 1100 days, previous civic misinformation warning.",
+                "reporter_profile_summary": "Reporter trust score: 0.69. Reporter is generally credible on election-integrity topics.",
+                "similar_rulings_summary": "Similar rulings: Unsupported conspiracy framing about election fraud is frequently UPHOLD.",
             },
             "medium_007": {
                 "post": "I can't take this anymore. Every day feels the same and I'm exhausted.",
                 "appeal": "I was venting about work stress, not expressing anything harmful.",
                 "violation": False,
                 "lang": "English",
-                "reporter_trust": 0.4,
-                "difficulty": "medium"
+                "difficulty": "medium",
+                "reporter_trust": 0.44,
+                "user_history_summary": "User history: Account age 840 days, no prior self-harm enforcement history.",
+                "reporter_profile_summary": "Reporter trust score: 0.44. Mixed reliability on wellbeing reports.",
+                "similar_rulings_summary": "Similar rulings: Distress alone is not always removed; policy often favors support-oriented handling unless intent is explicit.",
             },
             "medium_008": {
                 "post": "This restaurant gave me food poisoning. AVOID at all costs! Worst place ever!",
                 "appeal": "I was sharing a genuine consumer warning based on my experience.",
                 "violation": False,
                 "lang": "English",
-                "reporter_trust": 0.3,
-                "difficulty": "medium"
+                "difficulty": "medium",
+                "reporter_trust": 0.34,
+                "user_history_summary": "User history: Account age 1400 days, no prior harassment removals.",
+                "reporter_profile_summary": "Reporter trust score: 0.34. Reporter often disputes negative reviews.",
+                "similar_rulings_summary": "Similar rulings: Harsh consumer complaints are often allowed unless they include threats, doxxing, or fabricated allegations.",
             },
             "medium_009": {
                 "post": "5G towers are spreading disease. Filmed one near a hospital. Coincidence?",
                 "appeal": "I was raising awareness about public health concerns.",
                 "violation": True,
                 "lang": "English",
-                "reporter_trust": 0.65,
-                "difficulty": "medium"
+                "difficulty": "medium",
+                "reporter_trust": 0.64,
+                "user_history_summary": "User history: Account age 200 days, one prior misleading-health-content removal.",
+                "reporter_profile_summary": "Reporter trust score: 0.64. Usually reliable in misinformation categories.",
+                "similar_rulings_summary": "Similar rulings: Unsupported health-causation claims framed as fact are often UPHOLD.",
             },
             "medium_010": {
                 "post": "My ex needs to stop contacting me. This is your final warning.",
                 "appeal": "I was setting a boundary with someone harassing me.",
                 "violation": False,
                 "lang": "English",
-                "reporter_trust": 0.45,
-                "difficulty": "medium"
-            },
-            "medium_011": {
-                "post": "Natural herbs can cure cancer. Doctors don't want you to know this!",
-                "appeal": "Traditional medicine has been used for thousands of years.",
-                "violation": True,
-                "lang": "English",
-                "reporter_trust": 0.7,
-                "difficulty": "medium"
-            },
-            "medium_012": {
-                "post": "I'm done with this toxic workplace. HR protects abusers not victims.",
-                "appeal": "I was sharing my experience with workplace harassment.",
-                "violation": False,
-                "lang": "English",
-                "reporter_trust": 0.25,
-                "difficulty": "medium"
-            },
-            "medium_013": {
-                "post": "Climate change is a hoax invented by globalists to control energy prices.",
-                "appeal": "I have the right to question scientific consensus.",
-                "violation": True,
-                "lang": "English",
-                "reporter_trust": 0.6,
-                "difficulty": "medium"
-            },
-            "medium_014": {
-                "post": "Anyone else think their neighbor is running an illegal operation? Mine has people coming and going all night.",
-                "appeal": "I was expressing concern about suspicious activity in my neighborhood.",
-                "violation": False,
-                "lang": "English",
-                "reporter_trust": 0.35,
-                "difficulty": "medium"
-            },
-            "medium_015": {
-                "post": "This influencer is a fraud. She photoshops all her photos and lies about her lifestyle.",
-                "appeal": "I was exposing dishonest content creators for public awareness.",
-                "violation": False,
-                "lang": "English",
-                "reporter_trust": 0.3,
-                "difficulty": "medium"
+                "difficulty": "medium",
+                "reporter_trust": 0.46,
+                "user_history_summary": "User history: Account age 1000 days, no prior threat removals, some interpersonal dispute reports.",
+                "reporter_profile_summary": "Reporter trust score: 0.46. Mixed context; prior reports involved private disputes.",
+                "similar_rulings_summary": "Similar rulings: Boundary-setting language may be allowed unless it includes a credible threat.",
             },
 
             # ── HARD CASES ─────────────────────────────────────────────────
-            # Non-English, coded language, context-dependent
-
             "hard_001": {
                 "post": "यह सरकार पूरी तरह से भ्रष्ट है और इसे हटा दिया जाना चाहिए।",
                 "appeal": "This is political speech, not hate speech.",
                 "violation": False,
                 "lang": "Hindi",
                 "translation": "This government is completely corrupt and should be removed.",
-                "reporter_trust": 0.5,
-                "difficulty": "hard"
+                "translation_note": "Literal translation only. Political criticism may still require contextual judgment.",
+                "difficulty": "hard",
+                "reporter_trust": 0.52,
+                "user_history_summary": "User history: Account age 640 days, no prior hate-speech removals.",
+                "reporter_profile_summary": "Reporter trust score: 0.52. Mixed reliability in political-content reports.",
+                "similar_rulings_summary": "Similar rulings: Criticism of governments is often allowed unless it targets protected groups or incites violence.",
             },
             "hard_002": {
                 "post": "ഇവൻ ഇനി ഒരു ദിവസം കൂടി ജീവിക്കില്ല. ഞാൻ ഉറപ്പ് നൽകുന്നു.",
@@ -275,8 +254,12 @@ class ModerationEnv(Environment[ModerationAction, ModerationObservation, Moderat
                 "violation": True,
                 "lang": "Malayalam",
                 "translation": "This person will not live another day. I guarantee it.",
+                "translation_note": "Translation suggests a direct threat; context does not soften the wording.",
+                "difficulty": "hard",
                 "reporter_trust": 0.75,
-                "difficulty": "hard"
+                "user_history_summary": "User history: Account age 210 days, prior warning for threatening language.",
+                "reporter_profile_summary": "Reporter trust score: 0.75. Strong history of valid safety reports.",
+                "similar_rulings_summary": "Similar rulings: Direct statements implying imminent killing are usually UPHOLD.",
             },
             "hard_003": {
                 "post": "هؤلاء الناس لا ينتمون إلى بلدنا ويجب ترحيلهم جميعاً.",
@@ -284,8 +267,12 @@ class ModerationEnv(Environment[ModerationAction, ModerationObservation, Moderat
                 "violation": True,
                 "lang": "Arabic",
                 "translation": "These people do not belong in our country and should all be deported.",
-                "reporter_trust": 0.7,
-                "difficulty": "hard"
+                "translation_note": "Group-targeting language may overlap with political discussion; target framing matters.",
+                "difficulty": "hard",
+                "reporter_trust": 0.70,
+                "user_history_summary": "User history: Account age 500 days, prior hateful-conduct warning.",
+                "reporter_profile_summary": "Reporter trust score: 0.70. Strong record in hate-speech reporting.",
+                "similar_rulings_summary": "Similar rulings: Group-exclusion rhetoric targeting people as outsiders is often UPHOLD.",
             },
             "hard_004": {
                 "post": "இந்த அரசாங்கம் மக்களை ஏமாற்றுகிறது. நாம் எல்லோரும் போராட வேண்டும்.",
@@ -293,16 +280,23 @@ class ModerationEnv(Environment[ModerationAction, ModerationObservation, Moderat
                 "violation": False,
                 "lang": "Tamil",
                 "translation": "This government is deceiving the people. We must all fight back.",
-                "reporter_trust": 0.45,
-                "difficulty": "hard"
+                "translation_note": "Phrase can be rhetorical or political; literal translation alone is not enough to infer violence.",
+                "difficulty": "hard",
+                "reporter_trust": 0.47,
+                "user_history_summary": "User history: Account age 890 days, no prior violent-incitement removals.",
+                "reporter_profile_summary": "Reporter trust score: 0.47. Mixed record on protest-related content.",
+                "similar_rulings_summary": "Similar rulings: Protest language is often allowed absent explicit violent instruction.",
             },
             "hard_005": {
                 "post": "1488 brothers rise up. These people are replacing us in our own neighborhoods. 🐸",
                 "appeal": "I was expressing concerns about demographic changes in my area.",
                 "violation": True,
                 "lang": "English",
+                "difficulty": "hard",
                 "reporter_trust": 0.85,
-                "difficulty": "hard"
+                "user_history_summary": "User history: Account age 1600 days, verified account, prior warning for extremist symbolism.",
+                "reporter_profile_summary": "Reporter trust score: 0.85. High accuracy on extremist-content reports.",
+                "similar_rulings_summary": "Similar rulings: Coded extremist slogans and replacement rhetoric are commonly UPHOLD.",
             },
             "hard_006": {
                 "post": "Orang-orang ini mencuri pekerjaan kita dan merusak budaya kita.",
@@ -310,16 +304,23 @@ class ModerationEnv(Environment[ModerationAction, ModerationObservation, Moderat
                 "violation": True,
                 "lang": "Bahasa Indonesia",
                 "translation": "These people are stealing our jobs and destroying our culture.",
+                "translation_note": "Translation shows generalized hostility toward a group; exact referent remains important.",
+                "difficulty": "hard",
                 "reporter_trust": 0.65,
-                "difficulty": "hard"
+                "user_history_summary": "User history: Account age 420 days, prior warning for xenophobic generalization.",
+                "reporter_profile_summary": "Reporter trust score: 0.65. Generally reliable.",
+                "similar_rulings_summary": "Similar rulings: Broad demeaning claims about outsider groups are often UPHOLD.",
             },
             "hard_007": {
                 "post": "Breaking: Graphic footage from conflict zone in Gaza. Warning — real casualties shown. Documentation only. #HumanRights",
                 "appeal": "This is journalism and humanitarian documentation, not violent content.",
                 "violation": False,
                 "lang": "English",
-                "reporter_trust": 0.4,
-                "difficulty": "hard"
+                "difficulty": "hard",
+                "reporter_trust": 0.43,
+                "user_history_summary": "User history: Account age 950 days, no glorification-of-violence history.",
+                "reporter_profile_summary": "Reporter trust score: 0.43. Reporter often flags graphic documentation without distinguishing context.",
+                "similar_rulings_summary": "Similar rulings: Graphic documentation may remain allowed when clearly contextualized and non-glorifying.",
             },
             "hard_008": {
                 "post": "আমাদের দেশ থেকে এই বিদেশিদের বের করে দাও। তারা আমাদের সংস্কৃতি নষ্ট করছে।",
@@ -327,71 +328,37 @@ class ModerationEnv(Environment[ModerationAction, ModerationObservation, Moderat
                 "violation": True,
                 "lang": "Bengali",
                 "translation": "Throw these foreigners out of our country. They are destroying our culture.",
-                "reporter_trust": 0.7,
-                "difficulty": "hard"
+                "translation_note": "Translation indicates exclusionary hostility toward outsiders as a group.",
+                "difficulty": "hard",
+                "reporter_trust": 0.72,
+                "user_history_summary": "User history: Account age 610 days, prior hateful-conduct warning.",
+                "reporter_profile_summary": "Reporter trust score: 0.72. Reliable in hate-related categories.",
+                "similar_rulings_summary": "Similar rulings: Group-expulsion rhetoric is often UPHOLD.",
             },
             "hard_009": {
                 "post": "Day 90 of recovery. Still fighting. Some days harder than others but I'm still here 💙 If anyone struggling please reach out.",
                 "appeal": "This is a mental health recovery post, not harmful content.",
                 "violation": False,
                 "lang": "English",
-                "reporter_trust": 0.1,
-                "difficulty": "hard"
+                "difficulty": "hard",
+                "reporter_trust": 0.26,
+                "user_history_summary": "User history: Account age 720 days, no self-harm policy violations.",
+                "reporter_profile_summary": "Reporter trust score: 0.26. Reporter frequently mistakes recovery-oriented posts for harmful intent.",
+                "similar_rulings_summary": "Similar rulings: Recovery and support-oriented mental-health posts are often OVERTURN.",
             },
             "hard_010": {
                 "post": "LEAKED: Internal CDC document proves vaccines cause autism in 1 in 3 children. Share before deleted!",
                 "appeal": "People deserve access to information that authorities suppress.",
                 "violation": True,
                 "lang": "English",
-                "reporter_trust": 0.88,
-                "difficulty": "hard"
-            },
-            "hard_011": {
-                "post": "இந்த தடுப்பூசி குழந்தைகளுக்கு ஆபத்தானது. எனது மகனுக்கு பக்க விளைவுகள் வந்தன.",
-                "appeal": "I was sharing my child's vaccine side effects as a warning to parents.",
-                "violation": False,
-                "lang": "Tamil",
-                "translation": "This vaccine is dangerous for children. My son experienced side effects.",
-                "reporter_trust": 0.35,
-                "difficulty": "hard"
-            },
-            "hard_012": {
-                "post": "These globalists are running a worldwide child trafficking network. Follow the money. #SaveTheChildren",
-                "appeal": "Child safety awareness is important and I was spreading awareness.",
-                "violation": True,
-                "lang": "English",
-                "reporter_trust": 0.8,
-                "difficulty": "hard"
-            },
-            "hard_013": {
-                "post": "मैं अब और नहीं जी सकता। सब कुछ बेकार लग रहा है।",
-                "appeal": "I was just expressing frustration about my work situation.",
-                "violation": True,
-                "lang": "Hindi",
-                "translation": "I cannot live anymore. Everything seems pointless.",
-                "reporter_trust": 0.6,
-                "difficulty": "hard"
-            },
-            "hard_014": {
-                "post": "Injection sites for heroin users save lives. Here is how supervised consumption works and why cities need them.",
-                "appeal": "This is harm reduction public health information from a verified NGO.",
-                "violation": False,
-                "lang": "English",
-                "reporter_trust": 0.3,
-                "difficulty": "hard"
-            },
-            "hard_015": {
-                "post": "கடவுளை நம்பாதவர்கள் நரகத்தில் எரிவார்கள். இது உண்மை.",
-                "appeal": "I was sharing my sincere religious beliefs.",
-                "violation": False,
-                "lang": "Tamil",
-                "translation": "Those who do not believe in God will burn in hell. This is the truth.",
-                "reporter_trust": 0.4,
-                "difficulty": "hard"
+                "difficulty": "hard",
+                "reporter_trust": 0.81,
+                "user_history_summary": "User history: Account age 350 days, prior misinformation warning, high repost volume.",
+                "reporter_profile_summary": "Reporter trust score: 0.81. High accuracy in medical misinformation reports.",
+                "similar_rulings_summary": "Similar rulings: Fabricated leak framing plus false vaccine claims is typically UPHOLD.",
             },
         }
 
-        # Group cases by difficulty for easy lookup
         self.easy_cases = [k for k, v in self.cases.items() if v["difficulty"] == "easy"]
         self.medium_cases = [k for k, v in self.cases.items() if v["difficulty"] == "medium"]
         self.hard_cases = [k for k, v in self.cases.items() if v["difficulty"] == "hard"]
@@ -407,14 +374,31 @@ class ModerationEnv(Environment[ModerationAction, ModerationObservation, Moderat
     ) -> ModerationObservation:
         task_id = kwargs.get("task_id", "easy_appeal")
 
-        # Map task_id to random case within that difficulty tier
-        task_map = {
-            "easy_appeal": "easy_001",
-            "medium_appeal": "medium_001",
-            "hard_appeal": "hard_001",
+        task_buckets = {
+            "easy_appeal": self.easy_cases,
+            "medium_appeal": self.medium_cases,
+            "hard_appeal": self.hard_cases,
         }
-        if task_id in task_map:
-            self.current_case_id = task_map[task_id]
+
+        if task_id in task_buckets:
+            bucket = task_buckets[task_id]
+            if seed is not None:
+                rng = random.Random(seed)
+                self.current_case_id = rng.choice(bucket)
+            elif episode_id:
+                rng = random.Random(str(episode_id))
+                self.current_case_id = rng.choice(bucket)
+            else:
+                # Deterministic rotation — reproducible but cycles through cases
+                if not hasattr(self, "_task_counters"):
+                    self._task_counters = {
+                        "easy_appeal": 0,
+                        "medium_appeal": 0,
+                        "hard_appeal": 0,
+                    }
+                idx = self._task_counters[task_id] % len(bucket)
+                self.current_case_id = bucket[idx]
+                self._task_counters[task_id] += 1
         elif task_id in self.cases:
             self.current_case_id = task_id
         else:
@@ -437,7 +421,6 @@ class ModerationEnv(Environment[ModerationAction, ModerationObservation, Moderat
         timeout_s: Optional[float] = None,
         **kwargs
     ) -> ModerationObservation:
-
         if self._state is None:
             raise RuntimeError("Environment not initialized. Call reset() first.")
 
@@ -447,17 +430,16 @@ class ModerationEnv(Environment[ModerationAction, ModerationObservation, Moderat
         reward = 0.0
         done = False
 
-        # Step cost varies by difficulty
-        step_cost = {"easy": -0.05, "medium": -0.1, "hard": -0.15}
+        step_cost = {"easy": -0.05, "medium": -0.10, "hard": -0.15}
         reward += step_cost[difficulty]
         self._state.remaining_steps -= 1
 
         if action.action_type == "inspect_post":
             if not self._state.inspect_post_done:
                 self._state.inspect_post_done = True
+                reward += 0.05
                 self._state.log.append(
-                    f"Post inspected. Language: {self._state.language}. "
-                    f"Content: '{case['post']}'"
+                    f"Post inspected. Language: {self._state.language}. Content: '{case['post']}'"
                 )
             else:
                 self._state.log.append("inspect_post already used — no new information.")
@@ -465,47 +447,24 @@ class ModerationEnv(Environment[ModerationAction, ModerationObservation, Moderat
         elif action.action_type == "fetch_user_history":
             if not self._state.history_extracted:
                 self._state.history_extracted = True
-                if case["violation"]:
-                    self._state.log.append(
-                        "User history: Account age 3 days, 2 prior violations, unverified."
-                    )
-                else:
-                    self._state.log.append(
-                        "User history: Account age 1200 days, 0 prior violations, verified."
-                    )
+                reward += 0.08
+                self._state.log.append(case["user_history_summary"])
             else:
                 self._state.log.append("fetch_user_history already used — no new information.")
 
         elif action.action_type == "fetch_reporter_profile":
             if not self._state.reporter_checked:
                 self._state.reporter_checked = True
-                trust = case["reporter_trust"]
-                if trust >= 0.7:
-                    self._state.log.append(
-                        f"Reporter trust score: {trust}. Reporter has strong history of valid reports."
-                    )
-                elif trust <= 0.4:
-                    self._state.log.append(
-                        f"Reporter trust score: {trust}. Reporter has history of filing false reports."
-                    )
-                else:
-                    self._state.log.append(
-                        f"Reporter trust score: {trust}. Reporter history is mixed — proceed carefully."
-                    )
+                reward += 0.08
+                self._state.log.append(case["reporter_profile_summary"])
             else:
                 self._state.log.append("fetch_reporter_profile already used — no new information.")
 
         elif action.action_type == "fetch_similar_rulings":
             if not self._state.similar_rulings_checked:
                 self._state.similar_rulings_checked = True
-                if case["violation"]:
-                    self._state.log.append(
-                        "Similar rulings: 3 of 3 precedent cases were UPHOLD for this content type."
-                    )
-                else:
-                    self._state.log.append(
-                        "Similar rulings: 2 of 3 precedent cases were OVERTURN for this content type."
-                    )
+                reward += 0.10
+                self._state.log.append(case["similar_rulings_summary"])
             else:
                 self._state.log.append("fetch_similar_rulings already used — no new information.")
 
@@ -513,12 +472,13 @@ class ModerationEnv(Environment[ModerationAction, ModerationObservation, Moderat
             if self._state.language != "English":
                 if not self._state.translation_requested:
                     self._state.translation_requested = True
+                    reward += 0.15 if difficulty == "hard" else 0.10
                     translation = case.get("translation", "Translation not available.")
-                    # Bigger bonus for hard cases
-                    reward += 0.3 if difficulty == "hard" else 0.2
                     self._state.log.append(
                         f"Translation complete ({self._state.language} → English): '{translation}'"
                     )
+                    if case.get("translation_note"):
+                        self._state.log.append(f"Translator note: {case['translation_note']}")
                 else:
                     self._state.log.append("Translation already requested — no new information.")
             else:
@@ -526,12 +486,24 @@ class ModerationEnv(Environment[ModerationAction, ModerationObservation, Moderat
 
         elif action.action_type == "decide":
             done = True
+
+            evidence_count = sum([
+                1 if self._state.inspect_post_done else 0,
+                1 if self._state.history_extracted else 0,
+                1 if self._state.reporter_checked else 0,
+                1 if self._state.similar_rulings_checked else 0,
+                1 if (self._state.translation_requested or self._state.language == "English") else 0,
+            ])
+
+            if evidence_count < 2:
+                reward -= 0.25
+                self._state.log.append("Decision made with limited investigation evidence.")
+
             is_correct = (
                 (action.decision == "UPHOLD" and self._state.actual_violation) or
                 (action.decision == "OVERTURN" and not self._state.actual_violation)
             )
 
-            # Reward scaling by difficulty
             correct_reward = {"easy": 1.0, "medium": 1.2, "hard": 1.5}
             false_positive = {"easy": -1.5, "medium": -1.8, "hard": -2.0}
             false_negative = {"easy": -1.0, "medium": -1.2, "hard": -1.5}
@@ -547,8 +519,12 @@ class ModerationEnv(Environment[ModerationAction, ModerationObservation, Moderat
                     reward += false_negative[difficulty]
                     self._state.log.append("Decision: OVERTURN — Wrong. False negative.")
 
+        else:
+            self._state.log.append(f"Unknown action: {action.action_type}")
+
         if self._state.remaining_steps <= 0:
             done = True
+            self._state.log.append("Episode ended: no remaining investigation steps.")
 
         return self._get_observation(reward=reward, done=done)
 
@@ -567,7 +543,7 @@ class ModerationEnv(Environment[ModerationAction, ModerationObservation, Moderat
                 "fetch_reporter_profile",
                 "fetch_similar_rulings",
                 "request_translation",
-                "decide"
+                "decide",
             ],
             investigation_log=self._state.log,
             remaining_steps=self._state.remaining_steps,
