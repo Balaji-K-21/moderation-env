@@ -7,23 +7,46 @@ ENV_BASE_URL = os.getenv("ENV_BASE_URL", "https://kolaaahalan-moderation-env.hf.
 MODEL_NAME = os.getenv("MODEL_NAME", "llama-3.1-8b-instant")
 
 HF_TOKEN = os.getenv("HF_TOKEN")
-if not HF_TOKEN:
-    raise ValueError("HF_TOKEN environment variable not set.")
 
-client = OpenAI(
-    api_key=HF_TOKEN,
-    base_url="https://api.groq.com/openai/v1"
-)
+client = None
+if HF_TOKEN:
+    client = OpenAI(
+        api_key=HF_TOKEN,
+        base_url="https://api.groq.com/openai/v1"
+    )
 
 SESSION = requests.Session()
 
+
 def reset(task_id: str) -> dict:
-    response = SESSION.post(f"{ENV_BASE_URL}/reset", json={"task_id": task_id})
-    if not response.ok:
-        print("RESET STATUS:", response.status_code)
-        print("RESET BODY:", response.text)
-    response.raise_for_status()
-    return response.json()
+    try:
+        response = SESSION.post(
+            f"{ENV_BASE_URL}/reset",
+            json={"task_id": task_id},
+            timeout=30,
+        )
+        if not response.ok:
+            print("RESET STATUS:", response.status_code)
+            print("RESET BODY:", response.text)
+        response.raise_for_status()
+        return response.json()
+
+    except Exception as e:
+        print("⚠️ RESET ERROR:", str(e))
+        return {
+            "observation": {
+                "post_content": "",
+                "appeal_text": "",
+                "available_actions": [],
+                "investigation_log": ["Reset failed - fallback triggered"],
+                "remaining_steps": 0,
+                "reward": -1.0,
+                "done": True,
+            },
+            "reward": -1.0,
+            "done": True,
+        }
+
 
 def step(action_type: str, decision: str = "NONE") -> dict:
     payload = {
@@ -51,7 +74,6 @@ def step(action_type: str, decision: str = "NONE") -> dict:
     except Exception as e:
         print("⚠️ STEP ERROR:", str(e))
 
-        # SAFE FALLBACK → prevent crash
         return {
             "observation": {
                 "post_content": "",
@@ -66,17 +88,65 @@ def step(action_type: str, decision: str = "NONE") -> dict:
             "done": True,
         }
 
+
 def get_state() -> dict:
-    response = SESSION.get(f"{ENV_BASE_URL}/state")
-    if not response.ok:
-        print("STATE STATUS:", response.status_code)
-        print("STATE BODY:", response.text)
-    response.raise_for_status()
-    return response.json()
+    try:
+        response = SESSION.get(f"{ENV_BASE_URL}/state", timeout=30)
+        if not response.ok:
+            print("STATE STATUS:", response.status_code)
+            print("STATE BODY:", response.text)
+        response.raise_for_status()
+        return response.json()
+    except Exception as e:
+        print("⚠️ STATE ERROR:", str(e))
+        return {}
+
 
 def ask_agent(observation: dict, actions_taken=None) -> dict:
     if actions_taken is None:
         actions_taken = []
+
+    log = observation.get("investigation_log", [])
+    remaining = observation.get("remaining_steps", 6)
+    log_text = " ".join(log).lower()
+
+    evidence_count = len(set(actions_taken) & {
+        "inspect_post",
+        "fetch_user_history",
+        "fetch_reporter_profile",
+        "fetch_similar_rulings",
+        "request_translation"
+    })
+
+    def fallback_policy() -> dict:
+        needs_translation = (
+            "language:" in log_text
+            and "language: english" not in log_text
+            and "request_translation" not in actions_taken
+        )
+
+        if needs_translation:
+            return {"action_type": "request_translation", "decision": "NONE"}
+
+        if evidence_count < 2:
+            for candidate in [
+                "fetch_user_history",
+                "fetch_reporter_profile",
+                "fetch_similar_rulings",
+            ]:
+                if candidate not in actions_taken:
+                    return {"action_type": candidate, "decision": "NONE"}
+
+        if "false reports" in log_text or "0 prior violations" in log_text:
+            return {"action_type": "decide", "decision": "OVERTURN"}
+        elif "valid reports" in log_text or "prior violations" in log_text:
+            return {"action_type": "decide", "decision": "UPHOLD"}
+        else:
+            return {"action_type": "decide", "decision": "OVERTURN"}
+
+    if client is None:
+        print("⚠️ No HF_TOKEN/client available, using fallback policy.")
+        return fallback_policy()
 
     system_prompt = """You are a content moderation appeal investigator.
 You will be given a flagged post and a user's appeal.
@@ -97,18 +167,6 @@ DECISION: <UPHOLD or OVERTURN or NONE>
 Only use UPHOLD or OVERTURN when ACTION is decide. Use NONE otherwise.
 Be efficient — you have a limited number of steps."""
 
-    log = observation.get("investigation_log", [])
-    remaining = observation.get("remaining_steps", 6)
-
-    # Smarter decision forcing based on evidence, not just steps
-    evidence_count = len(set(actions_taken) & {
-        "inspect_post",
-        "fetch_user_history",
-        "fetch_reporter_profile",
-        "fetch_similar_rulings",
-        "request_translation"
-    })
-
     if evidence_count >= 3 or remaining <= 2:
         force_decide = "\nIMPORTANT: You MUST now call decide with UPHOLD or OVERTURN. No more investigation."
     else:
@@ -126,57 +184,63 @@ Investigation log:
 What is your next action?
 """
 
-    response = client.chat.completions.create(
-        model=MODEL_NAME,
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ],
-        temperature=0.0,
-    )
+    try:
+        response = client.chat.completions.create(
+            model=MODEL_NAME,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            temperature=0.0,
+        )
 
-    raw = response.choices[0].message.content.strip()
-    print(f"  LLM raw output: {raw}")
+        raw = response.choices[0].message.content.strip()
+        print(f"  LLM raw output: {raw}")
 
-    action_type = "decide"
-    decision = "NONE"
-    raw_lower = raw.lower()
-
-    if "overturn" in raw_lower:
         action_type = "decide"
-        decision = "OVERTURN"
-    elif "uphold" in raw_lower:
-        action_type = "decide"
-        decision = "UPHOLD"
-    else:
-        valid_actions = [
-            "inspect_post",
-            "fetch_user_history",
-            "fetch_reporter_profile",
-            "fetch_similar_rulings",
-            "request_translation",
-        ]
-        for line in raw.splitlines():
-            line_lower = line.strip().lower()
-            for valid_action in valid_actions:
-                if valid_action in line_lower:
-                    action_type = valid_action
-                    decision = "NONE"
+        decision = "NONE"
+        raw_lower = raw.lower()
+
+        if "overturn" in raw_lower:
+            action_type = "decide"
+            decision = "OVERTURN"
+        elif "uphold" in raw_lower:
+            action_type = "decide"
+            decision = "UPHOLD"
+        else:
+            valid_actions = [
+                "inspect_post",
+                "fetch_user_history",
+                "fetch_reporter_profile",
+                "fetch_similar_rulings",
+                "request_translation",
+            ]
+            for line in raw.splitlines():
+                line_lower = line.strip().lower()
+                for valid_action in valid_actions:
+                    if valid_action in line_lower:
+                        action_type = valid_action
+                        decision = "NONE"
+                        break
+                if action_type != "decide" or decision != "NONE":
                     break
 
-    log_text = " ".join(observation.get("investigation_log", [])).lower()
-    if action_type == "decide":
-        if "false reports" in log_text or "0 prior violations" in log_text:
-            decision = "OVERTURN"
-        elif "valid reports" in log_text or "prior violations" in log_text:
-            decision = "UPHOLD"
-        elif decision == "NONE":
-            decision = "OVERTURN"
+        if action_type == "decide":
+            if "false reports" in log_text or "0 prior violations" in log_text:
+                decision = "OVERTURN"
+            elif "valid reports" in log_text or "prior violations" in log_text:
+                decision = "UPHOLD"
+            elif decision == "NONE":
+                decision = "OVERTURN"
 
-    return {"action_type": action_type, "decision": decision}
+        return {"action_type": action_type, "decision": decision}
+
+    except Exception as e:
+        print("⚠️ LLM ERROR:", str(e))
+        return fallback_policy()
+
 
 def choose_next_action(observation: dict, actions_taken: list) -> dict:
-    # Always inspect first
     if "inspect_post" not in actions_taken:
         return {"action_type": "inspect_post", "decision": "NONE"}
 
@@ -190,7 +254,6 @@ def choose_next_action(observation: dict, actions_taken: list) -> dict:
 
     log_text = " ".join(observation.get("investigation_log", [])).lower()
 
-    # If non-English, prioritize translation early
     needs_translation = (
         "language:" in log_text
         and "language: english" not in log_text
@@ -199,7 +262,6 @@ def choose_next_action(observation: dict, actions_taken: list) -> dict:
     if needs_translation:
         return {"action_type": "request_translation", "decision": "NONE"}
 
-    # Require at least 2 investigation actions before letting the model decide
     if len(set(actions_taken) & investigation_actions) < 2:
         for candidate in [
             "fetch_user_history",
@@ -209,10 +271,8 @@ def choose_next_action(observation: dict, actions_taken: list) -> dict:
             if candidate not in actions_taken:
                 return {"action_type": candidate, "decision": "NONE"}
 
-    # After minimum investigation, ask the model
     action = ask_agent(observation, actions_taken)
 
-    # Block repeated non-final actions
     if action["action_type"] in actions_taken and action["action_type"] != "decide":
         for candidate in [
             "request_translation",
@@ -227,7 +287,6 @@ def choose_next_action(observation: dict, actions_taken: list) -> dict:
 
         return {"action_type": "decide", "decision": "OVERTURN"}
 
-    # If model tries to decide too early, force one more evidence step
     if action["action_type"] == "decide" and len(set(actions_taken) & investigation_actions) < 3:
         for candidate in [
             "fetch_user_history",
@@ -238,6 +297,7 @@ def choose_next_action(observation: dict, actions_taken: list) -> dict:
                 return {"action_type": candidate, "decision": "NONE"}
 
     return action
+
 
 def run_episode(task_id: str) -> float:
     print(f"\n{'=' * 50}")
@@ -294,6 +354,7 @@ def run_episode(task_id: str) -> float:
 
     print(f"\nFinal reward for {task_id}: {total_reward:.2f}")
     return total_reward
+
 
 if __name__ == "__main__":
     tasks = ["easy_appeal", "medium_appeal", "hard_appeal"]
