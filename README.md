@@ -1,3 +1,13 @@
+---
+title: Moderation Appeal Investigator
+emoji: 🛡️
+colorFrom: blue
+colorTo: green
+sdk: docker
+app_file: app.py
+pinned: false
+---
+
 # 🛡️ Moderation Appeal Investigator
 
 An AI-powered decision-making system that investigates content moderation appeals using structured reasoning and reinforcement-style interaction.
