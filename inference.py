@@ -7,13 +7,27 @@ from openai import OpenAI
 ENV_BASE_URL = os.getenv("ENV_BASE_URL", "https://kolaaahalan-moderation-env.hf.space")
 MODEL_NAME = os.getenv("MODEL_NAME", "llama-3.1-8b-instant")
 
+# Scaler / evaluator-provided proxy credentials
+EVAL_API_BASE_URL = os.getenv("API_BASE_URL")
+EVAL_API_KEY = os.getenv("API_KEY")
+
+# Local fallback credentials
 HF_TOKEN = os.getenv("HF_TOKEN")
+LOCAL_BASE_URL = "https://api.groq.com/openai/v1"
 
 client = None
-if HF_TOKEN:
+
+# Prefer evaluator-provided proxy
+if EVAL_API_KEY and EVAL_API_BASE_URL:
+    client = OpenAI(
+        api_key=EVAL_API_KEY,
+        base_url=EVAL_API_BASE_URL,
+    )
+# Fallback to local Groq setup
+elif HF_TOKEN:
     client = OpenAI(
         api_key=HF_TOKEN,
-        base_url="https://api.groq.com/openai/v1"
+        base_url=LOCAL_BASE_URL,
     )
 
 SESSION = requests.Session()
@@ -154,7 +168,7 @@ def ask_agent(observation: dict, actions_taken=None) -> dict:
             return {"action_type": "decide", "decision": "OVERTURN"}
 
     if client is None:
-        warn("⚠️ No HF_TOKEN/client available, using fallback policy.")
+        warn("⚠️ No LLM client available, using fallback policy.")
         return fallback_policy()
 
     system_prompt = """You are a content moderation appeal investigator.
