@@ -1,115 +1,133 @@
----
-title: Moderation Env
-emoji: ⚡
-colorFrom: blue
-colorTo: gray
-sdk: docker
-pinned: false
-license: mit
+# 🛡️ Moderation Appeal Investigator
+
+An AI-powered decision-making system that investigates content moderation appeals using structured reasoning and reinforcement-style interaction.
+
 ---
 
-# Content Moderation Appeal Investigator
+## 🚀 Overview
 
-An open reinforcement learning environment for training AI agents to investigate
-content moderation appeals using multi-step evidence gathering.
+Most moderation systems act like **black boxes** — they classify content instantly with little transparency.
 
-## The Problem
+This project introduces a different approach:
 
-Meta's AI moderation systems make single-pass decisions — flag, remove, done.
-There is no investigative reasoning layer. The 2025 Instagram ban wave affected
-millions of users because innocent content was removed with no second-pass review.
-This environment trains agents to investigate before deciding.
+> Instead of guessing, the system **investigates before deciding**.
 
-## What the Agent Does
+The agent:
+- Gathers evidence step-by-step  
+- Evaluates multiple signals  
+- Makes a final decision with reasoning  
 
-The agent receives a flagged post and a user's appeal. It has a budget of actions
-to gather evidence before making a final ruling: UPHOLD (keep the removal) or
-OVERTURN (restore the content).
+---
 
-## Tasks
+## 🧠 How It Works
 
-| Task | Difficulty | Description |
-|---|---|---|
-| easy_appeal | Easy | Clear spam with obvious signals |
-| medium_appeal | Medium | Ambiguous frustration language |
-| hard_appeal | Hard | Non-English political speech |
+The system is designed as an **interactive environment**, where an AI agent performs actions to investigate a case.
 
-## Action Space
+### 🔍 Available Actions
+- `inspect_post` → Understand the content  
+- `fetch_user_history` → Check prior violations  
+- `fetch_reporter_profile` → Evaluate reporter credibility  
+- `fetch_similar_rulings` → Look at precedents  
+- `request_translation` → Handle non-English content  
+- `decide` → Final decision (UPHOLD / OVERTURN)
 
-| Action | Description |
-|---|---|
-| inspect_post | See full post content and metadata |
-| fetch_user_history | Check user's past violations |
-| fetch_reporter_profile | Check reporter credibility |
-| fetch_similar_rulings | See precedent cases |
-| request_translation | Translate non-English content |
-| decide | Final ruling — UPHOLD or OVERTURN |
+---
 
-## Reward Function
+## ⚙️ Decision Strategy
 
-| Event | Reward |
-|---|---|
-| Correct decision (easy) | +1.0 |
-| Correct decision (medium) | +1.2 |
-| Correct decision (hard) | +1.5 |
-| Translation bonus | +0.2 to +0.3 |
-| Step cost | -0.05 to -0.15 |
-| False positive | -1.5 to -2.0 |
-| False negative | -1.0 to -1.5 |
+The agent follows a structured reasoning flow:
 
-## API Endpoints
+1. Always inspect the content  
+2. Gather multiple signals (user, reporter, precedents)  
+3. Handle multilingual cases via translation  
+4. Only decide after sufficient evidence  
 
-| Method | Endpoint | Description |
-|---|---|---|
-| POST | /reset | Start a new episode |
-| POST | /step | Submit an action |
-| GET | /state | Get current state |
-| GET | /health | Health check |
+This ensures:
+- No premature decisions  
+- Consistent reasoning  
+- Efficient use of limited steps  
 
-## Setup
+---
 
-### Install dependencies
-```bash
-pip install -r requirements.txt
-```
+## 🎯 Key Features
 
-### Set environment variables
-```bash
-export HF_TOKEN=your_groq_api_key
-export ENV_BASE_URL=http://localhost:8000
-```
+### ✅ Evidence-Based Moderation
+Decisions are based on multiple signals, not just text classification.
 
-### Run server
-```bash
-uvicorn server.app:app --host 0.0.0.0 --port 8000 --reload
-```
+### 🌍 Multilingual Understanding
+Handles non-English posts through translation before reasoning.
 
-### Run inference
-```bash
-python inference.py
-```
+### 🧩 Step-Constrained Reasoning
+Agent must make decisions within limited steps — mimicking real-world constraints.
 
-## Example Episode
-```
-reset(task_id="easy_appeal")
-→ Post: "BUY CHEAP PHARMA NOW! LINK IN BIO!!!"
-→ Appeal: "This is not spam, I am just sharing a deal."
+### 🔁 Reinforcement Learning Setup
+Environment provides rewards for:
+- Correct decisions  
+- Efficient investigation  
+- Avoiding false positives/negatives  
 
-step(inspect_post)            → reward: -0.05
-step(fetch_user_history)      → reward: -0.05
-step(fetch_reporter_profile)  → reward: -0.05
-step(decide, UPHOLD)          → reward: +0.95
-Total reward: 0.80
-```
+---
 
-## Environment Variables
+## 📊 Example Flow
 
-| Variable | Description |
-|---|---|
-| ENV_BASE_URL | The API endpoint for the environment |
-| MODEL_NAME | LLM model identifier |
-| HF_TOKEN | Groq API key for LLM inference |
+**Simple case:**
+inspect_post → fetch_user_history → fetch_reporter_profile → decide
 
-## Live Demo
+**Complex case:**
+inspect_post → request_translation → fetch_user_history → fetch_similar_rulings → decide
 
-[https://kolaaahalan-moderation-env.hf.space](https://kolaaahalan-moderation-env.hf.space)
+---
+
+## 🏗️ Architecture
+
+- **Environment:** OpenEnv-based simulation  
+- **Agent:** LLM-driven decision policy  
+- **Backend:** FastAPI environment server  
+- **Inference:** Iterative action selection loop  
+
+---
+
+## 📈 Results
+
+| Task | Score |
+|------|------|
+| Easy | 0.80 |
+| Medium | 0.80 |
+| Hard | 1.20 |
+| **Total** | **2.80** |
+
+---
+
+## 🧠 Why This Matters
+
+Content moderation is not just about classification — it's about **context, intent, and evidence**.
+
+This system demonstrates how AI can:
+- Reason step-by-step  
+- Reduce wrongful moderation decisions  
+- Improve transparency in decision-making  
+
+---
+
+## 🔮 Future Improvements
+
+- Learning-based policy instead of rule-guided logic  
+- Memory across multiple cases  
+- Human-in-the-loop feedback integration  
+- Explainable decision reports  
+
+---
+
+## 🏁 Conclusion
+
+This project moves moderation from:
+
+❌ Instant classification  
+→  
+✅ Structured investigation and reasoning  
+
+---
+
+## 👤 Author
+
+Balaji K
