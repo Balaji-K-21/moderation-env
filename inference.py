@@ -100,7 +100,16 @@ Be efficient — you have a limited number of steps."""
     log = observation.get("investigation_log", [])
     remaining = observation.get("remaining_steps", 6)
 
-    if "fetch_reporter_profile" in actions_taken or remaining <= 2:
+    # Smarter decision forcing based on evidence, not just steps
+    evidence_count = len(set(actions_taken) & {
+        "inspect_post",
+        "fetch_user_history",
+        "fetch_reporter_profile",
+        "fetch_similar_rulings",
+        "request_translation"
+    })
+
+    if evidence_count >= 3 or remaining <= 2:
         force_decide = "\nIMPORTANT: You MUST now call decide with UPHOLD or OVERTURN. No more investigation."
     else:
         force_decide = ""
@@ -167,43 +176,68 @@ What is your next action?
     return {"action_type": action_type, "decision": decision}
 
 def choose_next_action(observation: dict, actions_taken: list) -> dict:
-    log_text = " ".join(observation.get("investigation_log", [])).lower()
-    remaining = observation.get("remaining_steps", 0)
-
+    # Always inspect first
     if "inspect_post" not in actions_taken:
         return {"action_type": "inspect_post", "decision": "NONE"}
 
-    non_english_markers = [
-        "language: hindi",
-        "language: tamil",
-        "language: arabic",
-        "language: malayalam",
-        "language: bengali",
-        "language: bahasa",
-        "language: bahasa indonesia",
-    ]
-    needs_translation = any(marker in log_text for marker in non_english_markers)
+    investigation_actions = {
+        "inspect_post",
+        "fetch_user_history",
+        "fetch_reporter_profile",
+        "fetch_similar_rulings",
+        "request_translation",
+    }
 
-    if needs_translation and "request_translation" not in actions_taken:
+    log_text = " ".join(observation.get("investigation_log", [])).lower()
+
+    # If non-English, prioritize translation early
+    needs_translation = (
+        "language:" in log_text
+        and "language: english" not in log_text
+        and "request_translation" not in actions_taken
+    )
+    if needs_translation:
         return {"action_type": "request_translation", "decision": "NONE"}
 
-    if "fetch_user_history" not in actions_taken:
-        return {"action_type": "fetch_user_history", "decision": "NONE"}
+    # Require at least 2 investigation actions before letting the model decide
+    if len(set(actions_taken) & investigation_actions) < 2:
+        for candidate in [
+            "fetch_user_history",
+            "fetch_reporter_profile",
+            "fetch_similar_rulings",
+        ]:
+            if candidate not in actions_taken:
+                return {"action_type": candidate, "decision": "NONE"}
 
-    if "fetch_reporter_profile" not in actions_taken:
-        return {"action_type": "fetch_reporter_profile", "decision": "NONE"}
+    # After minimum investigation, ask the model
+    action = ask_agent(observation, actions_taken)
 
-    ambiguous_signals = [
-        "mixed",
-        "proceed carefully",
-        "0 prior violations",
-        "false reports",
-    ]
-    if any(signal in log_text for signal in ambiguous_signals):
-        if "fetch_similar_rulings" not in actions_taken and remaining > 1:
-            return {"action_type": "fetch_similar_rulings", "decision": "NONE"}
+    # Block repeated non-final actions
+    if action["action_type"] in actions_taken and action["action_type"] != "decide":
+        for candidate in [
+            "request_translation",
+            "fetch_user_history",
+            "fetch_reporter_profile",
+            "fetch_similar_rulings",
+        ]:
+            if candidate == "request_translation" and not needs_translation:
+                continue
+            if candidate not in actions_taken:
+                return {"action_type": candidate, "decision": "NONE"}
 
-    return ask_agent(observation, actions_taken)
+        return {"action_type": "decide", "decision": "OVERTURN"}
+
+    # If model tries to decide too early, force one more evidence step
+    if action["action_type"] == "decide" and len(set(actions_taken) & investigation_actions) < 3:
+        for candidate in [
+            "fetch_user_history",
+            "fetch_reporter_profile",
+            "fetch_similar_rulings",
+        ]:
+            if candidate not in actions_taken:
+                return {"action_type": candidate, "decision": "NONE"}
+
+    return action
 
 def run_episode(task_id: str) -> float:
     print(f"\n{'=' * 50}")
