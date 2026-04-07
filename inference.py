@@ -4,6 +4,8 @@ import requests
 from openai import OpenAI
 
 # ── Configuration ────────────────────────────────────────────────────────────
+API_BASE_URL = os.getenv("API_BASE_URL")
+API_KEY = os.getenv("API_KEY")
 ENV_BASE_URL = os.getenv("ENV_BASE_URL", "https://kolaaahalan-moderation-env.hf.space")
 MODEL_NAME = os.getenv("MODEL_NAME", "llama-3.1-8b-instant")
 
