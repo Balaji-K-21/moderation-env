@@ -1,4 +1,5 @@
 import os
+import sys
 import requests
 from openai import OpenAI
 
@@ -18,6 +19,14 @@ if HF_TOKEN:
 SESSION = requests.Session()
 
 
+def emit(line: str) -> None:
+    print(line, flush=True)
+
+
+def warn(line: str) -> None:
+    print(line, file=sys.stderr, flush=True)
+
+
 def reset(task_id: str) -> dict:
     try:
         response = SESSION.post(
@@ -26,13 +35,13 @@ def reset(task_id: str) -> dict:
             timeout=30,
         )
         if not response.ok:
-            print("RESET STATUS:", response.status_code)
-            print("RESET BODY:", response.text)
+            warn(f"RESET STATUS: {response.status_code}")
+            warn(f"RESET BODY: {response.text}")
         response.raise_for_status()
         return response.json()
 
     except Exception as e:
-        print("⚠️ RESET ERROR:", str(e))
+        warn(f"⚠️ RESET ERROR: {str(e)}")
         return {
             "observation": {
                 "post_content": "",
@@ -64,15 +73,15 @@ def step(action_type: str, decision: str = "NONE") -> dict:
         )
 
         if not response.ok:
-            print("STEP STATUS:", response.status_code)
-            print("STEP BODY:", response.text)
-            print("STEP PAYLOAD:", payload)
+            warn(f"STEP STATUS: {response.status_code}")
+            warn(f"STEP BODY: {response.text}")
+            warn(f"STEP PAYLOAD: {payload}")
 
         response.raise_for_status()
         return response.json()
 
     except Exception as e:
-        print("⚠️ STEP ERROR:", str(e))
+        warn(f"⚠️ STEP ERROR: {str(e)}")
 
         return {
             "observation": {
@@ -93,12 +102,12 @@ def get_state() -> dict:
     try:
         response = SESSION.get(f"{ENV_BASE_URL}/state", timeout=30)
         if not response.ok:
-            print("STATE STATUS:", response.status_code)
-            print("STATE BODY:", response.text)
+            warn(f"STATE STATUS: {response.status_code}")
+            warn(f"STATE BODY: {response.text}")
         response.raise_for_status()
         return response.json()
     except Exception as e:
-        print("⚠️ STATE ERROR:", str(e))
+        warn(f"⚠️ STATE ERROR: {str(e)}")
         return {}
 
 
@@ -145,7 +154,7 @@ def ask_agent(observation: dict, actions_taken=None) -> dict:
             return {"action_type": "decide", "decision": "OVERTURN"}
 
     if client is None:
-        print("⚠️ No HF_TOKEN/client available, using fallback policy.")
+        warn("⚠️ No HF_TOKEN/client available, using fallback policy.")
         return fallback_policy()
 
     system_prompt = """You are a content moderation appeal investigator.
@@ -195,7 +204,7 @@ What is your next action?
         )
 
         raw = response.choices[0].message.content.strip()
-        print(f"  LLM raw output: {raw}")
+        warn(f"LLM raw output: {raw}")
 
         action_type = "decide"
         decision = "NONE"
@@ -236,7 +245,7 @@ What is your next action?
         return {"action_type": action_type, "decision": decision}
 
     except Exception as e:
-        print("⚠️ LLM ERROR:", str(e))
+        warn(f"⚠️ LLM ERROR: {str(e)}")
         return fallback_policy()
 
 
@@ -300,9 +309,7 @@ def choose_next_action(observation: dict, actions_taken: list) -> dict:
 
 
 def run_episode(task_id: str) -> float:
-    print(f"\n{'=' * 50}")
-    print(f"Task: {task_id.upper()}")
-    print(f"{'=' * 50}")
+    emit(f"[START] task={task_id}")
 
     response = reset(task_id)
 
@@ -315,8 +322,6 @@ def run_episode(task_id: str) -> float:
     else:
         observation = response
 
-    print(f"  Case selected : {observation.get('post_content', '')}")
-
     total_reward = 0.0
     step_count = 0
     actions_taken = []
@@ -324,11 +329,6 @@ def run_episode(task_id: str) -> float:
     while not observation.get("done", False) and observation.get("remaining_steps", 0) > 0:
         action = choose_next_action(observation, actions_taken)
         actions_taken.append(action["action_type"])
-
-        print(f"\nStep {step_count + 1}")
-        print(f"  Chosen action : {action['action_type']}")
-        if action["action_type"] == "decide":
-            print(f"  Decision      : {action['decision']}")
 
         result = step(action["action_type"], action["decision"])
 
@@ -341,18 +341,24 @@ def run_episode(task_id: str) -> float:
         else:
             observation = result
 
-        reward = observation.get("reward", result.get("reward", 0.0))
+        reward = float(observation.get("reward", result.get("reward", 0.0)))
         total_reward += reward
         step_count += 1
 
-        print(f"  Reward        : {reward:.2f}")
-        print(f"  Remaining     : {observation.get('remaining_steps', 0)}")
-        print(f"  Log           : {observation.get('investigation_log', [])}")
+        emit(
+            f"[STEP] task={task_id} "
+            f"step={step_count} "
+            f"action={action['action_type']} "
+            f"decision={action['decision']} "
+            f"reward={reward:.2f} "
+            f"remaining={observation.get('remaining_steps', 0)} "
+            f"done={observation.get('done', False)}"
+        )
 
         if action["action_type"] == "decide" or observation.get("done", False):
             break
 
-    print(f"\nFinal reward for {task_id}: {total_reward:.2f}")
+    emit(f"[END] task={task_id} score={total_reward:.2f} steps={step_count}")
     return total_reward
 
 
@@ -364,11 +370,5 @@ if __name__ == "__main__":
         SESSION.cookies.clear()
         scores[task] = run_episode(task)
 
-    print(f"\n{'=' * 50}")
-    print("FINAL SCORES")
-    print(f"{'=' * 50}")
-    for task, score in scores.items():
-        print(f"  {task}: {score:.2f}")
-
     total = sum(scores.values())
-    print(f"\n  Total score: {total:.2f}")
+    emit(f"[END] task=overall score={total:.2f} steps={len(tasks)}")
