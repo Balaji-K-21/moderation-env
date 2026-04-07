@@ -4,14 +4,15 @@ from models import ModerationObservation, ModerationAction, ModerationState
 
 
 class ModerationEnv(Environment[ModerationAction, ModerationObservation, ModerationState]):
+    # Shared state across requests
+    _shared_state: Optional[ModerationState] = None
+    _shared_case_id: Optional[str] = None
+
     def __init__(self):
         super().__init__()
 
         self.cases = {
-
             # ── EASY CASES ─────────────────────────────────────────────────
-            # Clear violations or clear false positives — obvious signals
-
             "easy_001": {
                 "post": "BUY CHEAP PHARMA NOW! LINK IN BIO!!!",
                 "appeal": "This is not spam, I am just sharing a deal.",
@@ -134,8 +135,6 @@ class ModerationEnv(Environment[ModerationAction, ModerationObservation, Moderat
             },
 
             # ── MEDIUM CASES ───────────────────────────────────────────────
-            # Ambiguous — requires checking user history and reporter profile
-
             "medium_001": {
                 "post": "I hate how everyone in this group acts like a child.",
                 "appeal": "I was expressing frustration, not harassing anyone.",
@@ -258,8 +257,6 @@ class ModerationEnv(Environment[ModerationAction, ModerationObservation, Moderat
             },
 
             # ── HARD CASES ─────────────────────────────────────────────────
-            # Non-English, coded language, context-dependent
-
             "hard_001": {
                 "post": "यह सरकार पूरी तरह से भ्रष्ट है और इसे हटा दिया जाना चाहिए।",
                 "appeal": "This is political speech, not hate speech.",
@@ -391,13 +388,25 @@ class ModerationEnv(Environment[ModerationAction, ModerationObservation, Moderat
             },
         }
 
-        # Group cases by difficulty for easy lookup
         self.easy_cases = [k for k, v in self.cases.items() if v["difficulty"] == "easy"]
         self.medium_cases = [k for k, v in self.cases.items() if v["difficulty"] == "medium"]
         self.hard_cases = [k for k, v in self.cases.items() if v["difficulty"] == "hard"]
 
-        self.current_case_id = None
-        self._state = None
+    @property
+    def current_case_id(self) -> Optional[str]:
+        return self.__class__._shared_case_id
+
+    @current_case_id.setter
+    def current_case_id(self, value: Optional[str]) -> None:
+        self.__class__._shared_case_id = value
+
+    @property
+    def _state(self) -> Optional[ModerationState]:
+        return self.__class__._shared_state
+
+    @_state.setter
+    def _state(self, value: Optional[ModerationState]) -> None:
+        self.__class__._shared_state = value
 
     def reset(
         self,
@@ -407,12 +416,12 @@ class ModerationEnv(Environment[ModerationAction, ModerationObservation, Moderat
     ) -> ModerationObservation:
         task_id = kwargs.get("task_id", "easy_appeal")
 
-        # Map task_id to random case within that difficulty tier
         task_map = {
             "easy_appeal": "easy_001",
             "medium_appeal": "medium_001",
             "hard_appeal": "hard_001",
         }
+
         if task_id in task_map:
             self.current_case_id = task_map[task_id]
         elif task_id in self.cases:
@@ -426,7 +435,7 @@ class ModerationEnv(Environment[ModerationAction, ModerationObservation, Moderat
             post_id=self.current_case_id,
             actual_violation=case["violation"],
             language=case["lang"],
-            remaining_steps=8 if case["difficulty"] == "hard" else 6
+            remaining_steps=8 if case["difficulty"] == "hard" else 6,
         )
 
         return self._get_observation(reward=0.0, done=False)
@@ -437,8 +446,7 @@ class ModerationEnv(Environment[ModerationAction, ModerationObservation, Moderat
         timeout_s: Optional[float] = None,
         **kwargs
     ) -> ModerationObservation:
-
-        if self._state is None:
+        if self._state is None or self.current_case_id is None:
             raise RuntimeError("Environment not initialized. Call reset() first.")
 
         case = self.cases[self.current_case_id]
@@ -447,7 +455,6 @@ class ModerationEnv(Environment[ModerationAction, ModerationObservation, Moderat
         reward = 0.0
         done = False
 
-        # Step cost varies by difficulty
         step_cost = {"easy": -0.05, "medium": -0.1, "hard": -0.15}
         reward += step_cost[difficulty]
         self._state.remaining_steps -= 1
@@ -514,7 +521,6 @@ class ModerationEnv(Environment[ModerationAction, ModerationObservation, Moderat
                 if not self._state.translation_requested:
                     self._state.translation_requested = True
                     translation = case.get("translation", "Translation not available.")
-                    # Bigger bonus for hard cases
                     reward += 0.3 if difficulty == "hard" else 0.2
                     self._state.log.append(
                         f"Translation complete ({self._state.language} → English): '{translation}'"
@@ -531,7 +537,6 @@ class ModerationEnv(Environment[ModerationAction, ModerationObservation, Moderat
                 (action.decision == "OVERTURN" and not self._state.actual_violation)
             )
 
-            # Reward scaling by difficulty
             correct_reward = {"easy": 1.0, "medium": 1.2, "hard": 1.5}
             false_positive = {"easy": -1.5, "medium": -1.8, "hard": -2.0}
             false_negative = {"easy": -1.0, "medium": -1.2, "hard": -1.5}
@@ -554,9 +559,14 @@ class ModerationEnv(Environment[ModerationAction, ModerationObservation, Moderat
 
     @property
     def state(self) -> ModerationState:
+        if self._state is None:
+            raise RuntimeError("Environment not initialized. Call reset() first.")
         return self._state
 
     def _get_observation(self, reward: float, done: bool) -> ModerationObservation:
+        if self._state is None or self.current_case_id is None:
+            raise RuntimeError("Environment not initialized. Call reset() first.")
+
         case = self.cases[self.current_case_id]
         return ModerationObservation(
             post_content=case["post"],

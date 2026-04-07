@@ -29,15 +29,42 @@ def step(action_type: str, decision: str = "NONE") -> dict:
     payload = {
         "action": {
             "action_type": action_type,
-            "decision": decision if decision not in ["NONE", None] else None
+            "decision": decision if action_type == "decide" else None,
         }
     }
-    response = SESSION.post(f"{ENV_BASE_URL}/step", json=payload)
-    if not response.ok:
-        print("STEP STATUS:", response.status_code)
-        print("STEP BODY:", response.text)
-    response.raise_for_status()
-    return response.json()
+
+    try:
+        response = SESSION.post(
+            f"{ENV_BASE_URL}/step",
+            json=payload,
+            timeout=30,
+        )
+
+        if not response.ok:
+            print("STEP STATUS:", response.status_code)
+            print("STEP BODY:", response.text)
+            print("STEP PAYLOAD:", payload)
+
+        response.raise_for_status()
+        return response.json()
+
+    except Exception as e:
+        print("⚠️ STEP ERROR:", str(e))
+
+        # SAFE FALLBACK → prevent crash
+        return {
+            "observation": {
+                "post_content": "",
+                "appeal_text": "",
+                "available_actions": [],
+                "investigation_log": ["Step failed - fallback triggered"],
+                "remaining_steps": 0,
+                "reward": -1.0,
+                "done": True,
+            },
+            "reward": -1.0,
+            "done": True,
+        }
 
 def get_state() -> dict:
     response = SESSION.get(f"{ENV_BASE_URL}/state")
