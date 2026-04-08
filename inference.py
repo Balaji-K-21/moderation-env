@@ -43,6 +43,16 @@ def warn(line: str) -> None:
     print(line, file=sys.stderr, flush=True)
 
 
+def normalize_score(raw_score: float) -> float:
+    # Map raw rewards into the open interval (0, 1)
+    normalized = (raw_score + 2.0) / 4.0
+    if normalized <= 0.0:
+        return 0.001
+    if normalized >= 1.0:
+        return 0.999
+    return normalized
+
+
 def reset(task_id: str) -> dict:
     try:
         response = SESSION.post(
@@ -374,8 +384,9 @@ def run_episode(task_id: str) -> float:
         if action["action_type"] == "decide" or observation.get("done", False):
             break
 
-    emit(f"[END] task={task_id} score={total_reward:.2f} steps={step_count}")
-    return total_reward
+    final_score = normalize_score(total_reward)
+    emit(f"[END] task={task_id} score={final_score:.3f} steps={step_count}")
+    return final_score
 
 
 if __name__ == "__main__":
@@ -386,5 +397,5 @@ if __name__ == "__main__":
         SESSION.cookies.clear()
         scores[task] = run_episode(task)
 
-    total = sum(scores.values())
-    emit(f"[END] task=overall score={total:.2f} steps={len(tasks)}")
+    overall = sum(scores.values()) / len(tasks)
+    emit(f"[END] task=overall score={overall:.3f} steps={len(tasks)}")
